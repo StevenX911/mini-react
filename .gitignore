@@ -1,0 +1,36 @@
+# cache
+.DS_Store
+*~
+.cache
+
+# packages
+chrome-mac
+node_modules
+package-lock.json
+yarn.lock
+temp
+temp1
+temp2
+
+# log
+log
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# editor
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+cscope.*
+
+# other
+coverage
+.nyc_output
+scripts/dump.*
+__test.*

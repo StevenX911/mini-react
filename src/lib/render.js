@@ -6,6 +6,20 @@ let wipRoot = null;
 let currentRoot = null;
 // 删除的结点
 let deletions = [];
+let wipFiber = [];
+let hooksIndex = 0;
+
+/*
+    fiber: {
+        dom: 真实dom
+        parent: 父节点指针
+        child: 子节点指针
+        sibling: 兄弟节点指针 (单向链表)
+        props: {
+            children: [] 子节点
+        }
+    }
+*/
 
 // diff 虚拟DOM
 function reconcileChildren(wipFiber, elements){
@@ -114,19 +128,44 @@ function reconcileChildren(wipFiber, elements){
 
 }
 
-// 任务执行单元
-/*
-    fiber: {
-        dom: 真实dom
-        parent: 父节点指针
-        child: 子节点指针
-        sibling: 兄弟节点指针 (单向链表)
-        props: {
-            children: [] 子节点
-        }
+export function useState(initial){
+    const oldHook = wipFiber?.alternate?.hooks?.[hooksIndex];
+    const hook  = {
+        state: oldHook ? oldHook.state : initial,
+        queue: []
     }
-*/
-function preforUnitOfWork(fiber) {
+
+    const actions = oldHook ? oldHook.queue : [];
+    actions.forEach((action) => {
+        hook.state = action;
+    })
+
+    const setState = action => {
+        hook.queue.push(action);
+        // 触发更新
+        wipRoot = {
+            dom: currentRoot.dom,
+            props: currentRoot.props,
+            alternate: currentRoot
+        };
+        nextUnitOfWork = wipRoot;
+        deletions = [];
+    }
+    wipFiber.hooks.push(hook);
+    hooksIndex++;
+    return [hook.state, setState];
+}
+
+// 函数组件
+function updateFunctionComponent(fiber){
+    wipFiber = fiber;
+    wipFiber.hooks = [];
+    hooksIndex = 0;
+    const children = [fiber.type(fiber.props)]; // 运行函数获取子结点
+    reconcileChildren(fiber, children);
+}
+// 类组件
+function updateHostComponent(fiber){
     // 执行任务单元
     // 1. reactElement 转换为真实的dom
     if (!fiber.dom) {
@@ -143,7 +182,19 @@ function preforUnitOfWork(fiber) {
     // parent children sibling   生成fiber树，逻辑比较绕
     const elements = fiber.props.children;
     reconcileChildren(fiber, elements);
-    
+}
+
+// 任务执行单元
+function preforUnitOfWork(fiber) {
+
+    // 支持函数组件
+    const isFunctionComponent = fiber.type instanceof Function;
+    if(isFunctionComponent){
+        updateFunctionComponent(fiber);
+    } else {
+        updateHostComponent(fiber);
+    }
+
     // 3.返回下一个任务单元
     if (fiber.child) {
         // 3-1: 先返回孩子
@@ -205,11 +256,28 @@ function updateDOM(dom, prevProps, nextProps){
         })
 }
 
+// 删除结点
+function commitDeletion(fiber, domParent){
+    if(fiber.dom){
+        domParent.removeChild(fiber.dom);
+    } else {
+        commitDeletion(fiber.child, domParent);
+    }
+}
+
 // 渲染真实的DOM
 function commitWork(fiber){
     if(!fiber) return;
 
-    const domParent = fiber.parent.dom;
+    // const domParent = fiber.parent.dom;
+
+    let domParentFiber = fiber.parent;
+    while(!domParentFiber.dom){
+        domParentFiber =  domParentFiber.parent;
+    }
+
+    const domParent = domParentFiber.dom;
+
     // domParent.appendChild(fiber.dom);
     // 优化3
     switch(fiber.effectTag){
@@ -220,7 +288,8 @@ function commitWork(fiber){
             !!fiber.dom && updateDOM(fiber.dom, fiber.alternate, fiber.props);
             break;
         case 'DELETION':
-            !!fiber.dom && domParent.removeChild(fiber.dom);
+            // !!fiber.dom && domParent.removeChild(fiber.dom);
+            commitDeletion(fiber, domParent);
             break;
         default:
             break;
@@ -287,7 +356,7 @@ function createDOM(fiber) {
 }
 
 // 核心API：渲染
-function render(element, container) {
+export function render(element, container) {
 
     // 缺陷1
     // createDOM(element, container);
@@ -302,5 +371,3 @@ function render(element, container) {
     nextUnitOfWork = wipRoot;
     deletions = [];
 }
-
-export default render;

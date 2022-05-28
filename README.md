@@ -2,7 +2,7 @@
 
 ## Summary
 - 简易版React
-- 实现核心API: `createElement` 和 `render`
+- 实现核心API: `createElement`、`render`、`useState`
 - 理解`fiber`树的更新过程
 - 使用`requestIdleCallback`作为`scheduler`进行任务调度
 - 实现简易`diff`
